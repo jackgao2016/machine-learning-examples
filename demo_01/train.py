@@ -32,6 +32,6 @@ with mlflow.start_run():
     accuracy = model.score(X_test, y_test)
     mlflow.log_metric("accuracy", accuracy)
     # 新增：用skops格式保存模型，消除安全警告
-    mlflow.sklearn.log_model(model, name="random_forest_model", serialization_format="skops")
+    mlflow.sklearn.log_model(model, name="random_forest_model", serialization_format="pickle")
 
 print("训练完成，源码已手动记录到远程MLflow Server！")
