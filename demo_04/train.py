@@ -8,9 +8,9 @@ from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+import pickle  # 提前导入pickle
 
 # ===================== 1. 强制PyTorch使用CPU（无GPU适配） =====================
-# 禁用CUDA，强制所有操作在CPU上运行
 torch.cuda.is_available = lambda: False
 device = torch.device("cpu")
 print(f"使用设备: {device}")
@@ -27,7 +27,7 @@ class IrisClassifier(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(0.2),  # 防止过拟合
+            nn.Dropout(0.2),
             nn.Linear(hidden_dim, output_dim)
         )
 
@@ -36,7 +36,7 @@ class IrisClassifier(nn.Module):
 
 
 # ===================== 4. 数据预处理（PyTorch格式） =====================
-# 加载数据并标准化（PyTorch对数据尺度敏感）
+# 加载数据并标准化
 iris = load_iris()
 X = iris.data
 y = iris.target
@@ -44,6 +44,10 @@ y = iris.target
 # 标准化
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
+
+# ===== 关键修正1：提前保存scaler.pkl，确保log_model时文件存在 =====
+with open("scaler.pkl", "wb") as f:
+    pickle.dump(scaler, f)
 
 # 划分训练/测试集，转为PyTorch张量
 X_train, X_test, y_train, y_test = train_test_split(
@@ -54,7 +58,7 @@ y_train_tensor = torch.tensor(y_train, dtype=torch.long).to(device)
 X_test_tensor = torch.tensor(X_test, dtype=torch.float32).to(device)
 y_test_tensor = torch.tensor(y_test, dtype=torch.long).to(device)
 
-# 构建DataLoader（批量训练）
+# 构建DataLoader
 train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
 train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
 
@@ -71,7 +75,7 @@ params = {
 
 # ===================== 6. MLflow日志+模型训练 =====================
 with mlflow.start_run():
-    # 关键：手动记录当前脚本源码
+    # 记录当前脚本源码
     mlflow.log_artifact(__file__, "training_source")
 
     # 记录训练参数
@@ -83,7 +87,7 @@ with mlflow.start_run():
         hidden_dim=params["hidden_dim"],
         output_dim=params["output_dim"]
     ).to(device)
-    criterion = nn.CrossEntropyLoss()  # 分类任务损失函数
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=params["lr"])
 
     # 训练循环
@@ -91,24 +95,21 @@ with mlflow.start_run():
     for epoch in range(params["epochs"]):
         total_loss = 0.0
         for batch_X, batch_y in train_loader:
-            # 前向传播
             outputs = model(batch_X)
             loss = criterion(outputs, batch_y)
 
-            # 反向传播+优化
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
 
-        # 记录每个epoch的损失（可选）
         avg_loss = total_loss / len(train_loader)
         mlflow.log_metric("train_loss", avg_loss, step=epoch)
 
     # 测试集评估
     model.eval()
-    with torch.no_grad():  # 禁用梯度计算，节省CPU资源
+    with torch.no_grad():
         test_outputs = model(X_test_tensor)
         _, preds = torch.max(test_outputs, 1)
         accuracy = (preds == y_test_tensor).float().mean().item()
@@ -116,19 +117,15 @@ with mlflow.start_run():
     # 记录核心指标
     mlflow.log_metric("test_accuracy", accuracy)
 
-    # 记录PyTorch模型（MLflow原生支持，无需skops）
+    # ===== 关键修正2：此时scaler.pkl已存在，可正常传入extra_files =====
     mlflow.pytorch.log_model(
         pytorch_model=model,
         name="pytorch_iris_model",
-        # 保存scaler，方便推理时使用
-        extra_files=["scaler.pkl"]  # 可选：保存预处理器
+        extra_files=["scaler.pkl"]  # 现在文件存在，不会报错
     )
 
-# 保存scaler（可选，方便推理）
-import pickle
-
-with open("scaler.pkl", "wb") as f:
-    pickle.dump(scaler, f)
+    # 可选：额外将scaler.pkl记录到artifacts目录（便于查看）
+    mlflow.log_artifact("scaler.pkl", "preprocessor")
 
 print(f"训练完成！测试集准确率: {accuracy:.4f}")
 print("所有日志（源码、参数、指标、模型）已记录到远程MLflow Server！")
