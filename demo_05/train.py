@@ -1,8 +1,6 @@
-# 端到端的信用风险预测流程（数据加载→预处理→平衡→建模→评估→调优→解释）
-
 # 安装依赖（终端执行）
 # pip install pandas==2.1.4 numpy==1.26.4 scikit-learn==1.3.2 imbalanced-learn==0.11.0
-# pip install matplotlib==3.8.2 seaborn==0.13.1 xgboost==2.0.3 shap==0.44.1
+# pip install matplotlib==3.8.2 seaborn==0.13.1 xgboost==2.0.3 shap>=0.40.0
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,11 +12,11 @@ from imblearn.over_sampling import SMOTE
 from xgboost import XGBClassifier
 import shap
 
-# ========== 全局配置（核心修正：移除中文依赖，统一英文） ==========
-# 仅保留负号适配，避免中文乱码/字体警告
-plt.rcParams["axes.unicode_minus"] = False
+# ========== 全局配置（核心：移除中文依赖，统一英文，避免字体警告） ==========
+plt.rcParams["axes.unicode_minus"] = False  # 仅保留负号适配
 plt.rcParams["figure.figsize"] = (10, 6)  # 统一图表大小
 plt.rcParams["font.size"] = 10  # 统一字体大小
+plt.rcParams["font.family"] = ["DejaVu Sans"]  # 通用无衬线字体
 
 # ========== 1. 数据加载与基础校验 ==========
 file_path = "default of credit card clients.csv"  # 替换为你的文件路径
@@ -150,7 +148,7 @@ def plot_roc_curve(y_true, y_pred_proba):
 plot_confusion_matrix(y_test, y_pred_xgb)
 auc_score = plot_roc_curve(y_test, y_pred_proba_xgb)
 
-# 分类报告（仅输出一次，修正重复问题）
+# 分类报告（仅输出一次）
 print("基础模型分类报告:")
 print(classification_report(y_test, y_pred_xgb, target_names=["Non-Default", "Default"]))
 print(f"基础模型AUC-ROC: {auc_score:.4f}")
@@ -160,7 +158,7 @@ print("\n" + "=" * 50)
 print("4. 模型超参数调优")
 print("=" * 50)
 
-# 网格搜索配置
+# 网格搜索配置（精简参数，加快运行速度）
 param_grid = {
     "learning_rate": [0.01, 0.1],
     "max_depth": [3, 5, 7],
@@ -185,30 +183,44 @@ print(f"调优后测试集AUC: {best_auc:.4f}")
 print("调优后分类报告:")
 print(classification_report(y_test, y_pred_best, target_names=["Non-Default", "Default"]))
 
-# ========== 7. 模型解释（SHAP） ==========
+# ========== 7. 模型解释（SHAP）- 兼容所有版本 ==========
 print("\n" + "=" * 50)
 print("5. 模型特征解释（SHAP）")
 print("=" * 50)
+
+# 打印SHAP版本，便于排查
+print(f"当前SHAP版本：{shap.__version__}")
 
 # 计算SHAP值（针对最优模型）
 explainer = shap.TreeExplainer(best_xgb)
 shap_values = explainer.shap_values(X_test)
 
-# 1. 特征重要性条形图
+# 1. 特征重要性条形图（兼容所有版本）
 plt.figure(figsize=(12, 8))
 shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
 plt.title("SHAP Feature Importance (Credit Default Prediction)", fontsize=14)
+plt.xlabel("Mean Absolute SHAP Value", fontsize=12)
+plt.ylabel("Features", fontsize=12)
 plt.tight_layout()
 plt.show()
 
-# 2. 核心特征依赖图（PAY_1_1：第一个还款状态为1的特征）
-# 自动匹配PAY_1相关特征（避免特征名硬编码错误）
+# 2. 核心特征依赖图（PAY_1）- 兼容所有SHAP版本
 pay1_feature = [col for col in X_test.columns if "PAY_1_" in col][0]
+
+# 通用写法：手动设置标签，不依赖xlabel/ylabel参数
+fig, ax = plt.subplots(figsize=(10, 6))
 shap.dependence_plot(
-    pay1_feature, shap_values, X_test,
-    xlabel=f"Feature: {pay1_feature} (Payment Status 1)",
-    ylabel="SHAP Value (Impact on Default Probability)",
-    show=True
+    pay1_feature,
+    shap_values,
+    X_test,
+    ax=ax,
+    show=False  # 先不显示，手动设置标签
 )
+# 手动添加自定义标签（兼容所有版本）
+ax.set_xlabel(f"Feature: {pay1_feature} (Payment Status 1)", fontsize=12)
+ax.set_ylabel("SHAP Value (Impact on Default Probability)", fontsize=12)
+ax.set_title("Impact of Payment Status (PAY_1) on Credit Default", fontsize=14)
+plt.tight_layout()
+plt.show()
 
 print("\n✅ 信用风险预测流程执行完成！")
