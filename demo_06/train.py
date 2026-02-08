@@ -433,6 +433,8 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
     signature = infer_signature(X_test_np[:5], trained_model(X_test_tensor[:5]).cpu().detach().numpy())
     mlflow.pytorch.log_model(
         pytorch_model=trained_model,
+        name = "credit_default_pytorch_model",
+        extra_files = ["credit_default_pytorch_model.pkl"],  # 现在文件存在，不会报错
         artifact_path="model",
         signature=signature,
         input_example=X_test_np[:1]
