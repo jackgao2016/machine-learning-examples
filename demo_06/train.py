@@ -1,5 +1,4 @@
 # 安装依赖（终端执行）
-# 兼容所有Python版本的安装命令
 # pip install pandas numpy scikit-learn imbalanced-learn
 # pip install matplotlib seaborn torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # pip install mlflow shap scikit-optimize
@@ -375,7 +374,7 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
     plot_roc_curve()
     plot_loss_curve()
 
-    # ========== 4.5 SHAP解释并上报（修复版） ==========
+    # ========== 4.5 SHAP解释并上报（最终修复版） ==========
     print("\n" + "=" * 50)
     print("4. SHAP特征解释")
     print("=" * 50)
@@ -391,11 +390,19 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
         # 计算SHAP值（输入为张量）
         shap_values = explainer.shap_values(X_test_sample)
 
-        # 转换为NumPy数组用于绘图
-        if isinstance(shap_values, list):
-            shap_values = shap_values[0]
-        shap_values_np = shap_values.cpu().numpy() if DEVICE.type == "cuda" else shap_values.numpy()
-        X_test_sample_np = X_test_sample.cpu().numpy()
+        # 核心修复：判断类型后再转换（区分张量/NumPy数组）
+        if isinstance(shap_values, torch.Tensor):
+            # 如果是PyTorch张量（GPU/CPU），转成NumPy
+            shap_values_np = shap_values.cpu().numpy()
+        else:
+            # 如果已经是NumPy数组，直接使用
+            shap_values_np = shap_values
+        # 处理多输出情况
+        if isinstance(shap_values_np, list):
+            shap_values_np = shap_values_np[0]
+
+        # 测试集采样转NumPy（张量→NumPy）
+        X_test_sample_np = X_test_sample.cpu().numpy() if isinstance(X_test_sample, torch.Tensor) else X_test_sample
 
         # 绘制SHAP特征重要性图
         plt.figure(figsize=(12, 8))
