@@ -1,8 +1,8 @@
 # 安装依赖（终端执行）
-# 核心修正：将 pytorch 改为 torch，适配所有系统
-# pip install pandas==2.1.4 numpy==1.26.4 scikit-learn==1.3.2 imbalanced-learn==0.11.0
-# pip install matplotlib==3.8.2 seaborn==0.13.1 torch>=2.0.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-# pip install mlflow==2.8.1 shap>=0.40.0 scikit-optimize==0.9.0
+# 兼容所有Python版本的安装命令
+# pip install pandas numpy scikit-learn imbalanced-learn
+# pip install matplotlib seaborn torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# pip install mlflow shap scikit-optimize
 import os
 import warnings
 
@@ -19,7 +19,7 @@ from mlflow.models.signature import infer_signature
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from sklearn.metrics import roc_auc_score, roc_curve, classification_report, confusion_matrix
@@ -39,12 +39,12 @@ plt.rcParams["figure.figsize"] = (10, 6)
 plt.rcParams["font.size"] = 10
 plt.rcParams["font.family"] = ["DejaVu Sans"]
 
-# 3. MLflow配置（远程服务器地址替换为你的实际地址）
-MLFLOW_TRACKING_URI = "http://8.130.215.237:8081/"  # 替换为远程MLflow地址
+# 3. MLflow配置（远程服务器地址）
+MLFLOW_TRACKING_URI = "http://8.130.215.237:8081/"
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment("credit_default_prediction_pytorch")  # 实验名称
+mlflow.set_experiment("credit_default_prediction_pytorch")
 
-# ========== 1. 数据加载与预处理（保留原逻辑） ==========
+# ========== 1. 数据加载与预处理 ==========
 file_path = "default of credit card clients.csv"
 df = None
 
@@ -103,10 +103,9 @@ try:
     y_test_tensor = torch.tensor(y_test.values.reshape(-1, 1), dtype=torch.float32).to(DEVICE)
 
     # 创建DataLoader
+    BATCH_SIZE = 128
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
-
-    BATCH_SIZE = 128
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
@@ -150,7 +149,7 @@ class CreditDefaultNet(nn.Module):
 # ========== 3. 训练函数定义 ==========
 def train_model(model, train_loader, test_loader, epochs, lr, weight_decay, patience=5):
     # 损失函数和优化器
-    criterion = nn.BCELoss()  # 二分类交叉熵
+    criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, verbose=True)
 
@@ -336,7 +335,7 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
         plt.title("Confusion Matrix")
         plt.tight_layout()
         plt.savefig("confusion_matrix.png")
-        mlflow.log_artifact("confusion_matrix.png")  # 上报到MLflow
+        mlflow.log_artifact("confusion_matrix.png")
         plt.close()
 
 
@@ -376,25 +375,46 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
     plot_roc_curve()
     plot_loss_curve()
 
-    # ========== 4.5 SHAP解释并上报 ==========
+    # ========== 4.5 SHAP解释并上报（修复版） ==========
     print("\n" + "=" * 50)
     print("4. SHAP特征解释")
     print("=" * 50)
 
-    # 转换为numpy用于SHAP
-    X_test_np = X_test_tensor.cpu().numpy()
-    # 使用DeepExplainer（适配PyTorch模型）
-    explainer = shap.DeepExplainer(trained_model, X_train_tensor[:100].cpu())  # 采样加速
-    shap_values = explainer.shap_values(X_test_np[:100])  # 采样加速
+    # 核心修正：使用PyTorch张量而非NumPy数组
+    sample_size = 100
+    X_train_sample = X_train_tensor[:sample_size].to(DEVICE)
+    X_test_sample = X_test_tensor[:sample_size].to(DEVICE)
 
-    # 特征重要性图
-    plt.figure(figsize=(12, 8))
-    shap.summary_plot(shap_values, X_test_np[:100], feature_names=X_test.columns, plot_type="bar", show=False)
-    plt.title("SHAP Feature Importance")
-    plt.tight_layout()
-    plt.savefig("shap_feature_importance.png")
-    mlflow.log_artifact("shap_feature_importance.png")
-    plt.close()
+    try:
+        # 初始化DeepExplainer（输入为张量）
+        explainer = shap.DeepExplainer(trained_model, X_train_sample)
+        # 计算SHAP值（输入为张量）
+        shap_values = explainer.shap_values(X_test_sample)
+
+        # 转换为NumPy数组用于绘图
+        if isinstance(shap_values, list):
+            shap_values = shap_values[0]
+        shap_values_np = shap_values.cpu().numpy() if DEVICE.type == "cuda" else shap_values.numpy()
+        X_test_sample_np = X_test_sample.cpu().numpy()
+
+        # 绘制SHAP特征重要性图
+        plt.figure(figsize=(12, 8))
+        shap.summary_plot(
+            shap_values_np,
+            X_test_sample_np,
+            feature_names=X_test.columns[:sample_size],
+            plot_type="bar",
+            show=False
+        )
+        plt.title("SHAP Feature Importance")
+        plt.tight_layout()
+        plt.savefig("shap_feature_importance.png")
+        mlflow.log_artifact("shap_feature_importance.png")
+        plt.close()
+
+    except Exception as e:
+        print(f"SHAP绘图警告（不影响核心流程）: {str(e)}")
+        mlflow.log_param("shap_warning", str(e))
 
     # ========== 4.6 保存并上报模型 ==========
     # 保存模型到本地
@@ -402,6 +422,7 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
     torch.save(trained_model.state_dict(), model_path)
 
     # 上报模型到MLflow
+    X_test_np = X_test_tensor.cpu().numpy()  # 用于生成签名
     signature = infer_signature(X_test_np[:5], trained_model(X_test_tensor[:5]).cpu().detach().numpy())
     mlflow.pytorch.log_model(
         pytorch_model=trained_model,
@@ -409,7 +430,7 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
         signature=signature,
         input_example=X_test_np[:1]
     )
-    mlflow.log_artifact(model_path)  # 同时上报pth文件
+    mlflow.log_artifact(model_path)
 
     # ========== 4.7 打印实验信息 ==========
     print("\n" + "=" * 50)
@@ -422,7 +443,7 @@ with mlflow.start_run(run_name="credit_default_pytorch_run") as run:
     print("\n✅ 训练完成！所有结果已上报到MLflow！")
 
 
-# ========== 5. 加载模型示例（可选） ==========
+# ========== 5. 加载模型示例 ==========
 def load_model_from_mlflow(run_id, model_path="model"):
     """从MLflow加载训练好的模型"""
     model_uri = f"runs:/{run_id}/{model_path}"
