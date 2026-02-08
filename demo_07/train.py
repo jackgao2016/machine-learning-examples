@@ -28,7 +28,7 @@ plt.rcParams["font.family"] = ["DejaVu Sans"]
 # MLflow配置（核心：连接Server，创建实验）
 MLFLOW_TRACKING_URI = "http://8.130.215.237:8081"  # 替换为你的MLflow Server地址
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment("CreditDefault-XGBoost-Sklearn-MLflow2")  # 实验名称
+mlflow.set_experiment("CreditDefault-XGBoost-Sklearn-MLflow33")  # 实验名称
 mlflow.sklearn.autolog(disable=True)  # 关闭自动日志，手动控制更灵活
 
 # ========== 工具函数（可视化+临时文件保存） ==========
