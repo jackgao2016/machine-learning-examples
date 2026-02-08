@@ -1,0 +1,88 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="allure-pytest" />
+          <option value="allure-python-commons" />
+          <option value="amqp" />
+          <option value="anyio" />
+          <option value="asgiref" />
+          <option value="attrs" />
+          <option value="billiard" />
+          <option value="celery" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="charset-normalizer" />
+          <option value="click" />
+          <option value="click-didyoumean" />
+          <option value="click-plugins" />
+          <option value="click-repl" />
+          <option value="croniter" />
+          <option value="cryptography" />
+          <option value="Django" />
+          <option value="django-cors-headers" />
+          <option value="django-filter" />
+          <option value="djangorestframework" />
+          <option value="drf-spectacular" />
+          <option value="h11" />
+          <option value="httpcore" />
+          <option value="httpx" />
+          <option value="idna" />
+          <option value="inflection" />
+          <option value="iniconfig" />
+          <option value="jsonpath-ng" />
+          <option value="jsonschema" />
+          <option value="jsonschema-specifications" />
+          <option value="kombu" />
+          <option value="lxml" />
+          <option value="packaging" />
+          <option value="pillow" />
+          <option value="pluggy" />
+          <option value="ply" />
+          <option value="prompt_toolkit" />
+          <option value="pycparser" />
+          <option value="Pygments" />
+          <option value="PyMySQL" />
+          <option value="PyPDF2" />
+          <option value="pytest" />
+          <option value="python-dateutil" />
+          <option value="python-decouple" />
+          <option value="python-docx" />
+          <option value="reportlab" />
+          <option value="pytz" />
+          <option value="PyYAML" />
+          <option value="redis" />
+          <option value="referencing" />
+          <option value="requests" />
+          <option value="rpds-py" />
+          <option value="six" />
+          <option value="sniffio" />
+          <option value="sqlparse" />
+          <option value="typing_extensions" />
+          <option value="tzdata" />
+          <option value="uritemplate" />
+          <option value="urllib3" />
+          <option value="vine" />
+          <option value="wcwidth" />
+          <option value="langchain-openai" />
+          <option value="django-simpleui" />
+          <option value="playwright" />
+          <option value="selenium" />
+          <option value="webdriver-manager" />
+          <option value="browser-use" />
+          <option value="djangorestframework-simplejwt" />
+          <option value="pandas" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
