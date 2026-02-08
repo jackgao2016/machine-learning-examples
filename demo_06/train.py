@@ -1,6 +1,7 @@
 # 安装依赖（终端执行）
+# 核心修正：将 pytorch 改为 torch，适配所有系统
 # pip install pandas==2.1.4 numpy==1.26.4 scikit-learn==1.3.2 imbalanced-learn==0.11.0
-# pip install matplotlib==3.8.2 seaborn==0.13.1 pytorch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2
+# pip install matplotlib==3.8.2 seaborn==0.13.1 torch>=2.0.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # pip install mlflow==2.8.1 shap>=0.40.0 scikit-optimize==0.9.0
 import os
 import warnings
@@ -39,7 +40,7 @@ plt.rcParams["font.size"] = 10
 plt.rcParams["font.family"] = ["DejaVu Sans"]
 
 # 3. MLflow配置（远程服务器地址替换为你的实际地址）
-MLFLOW_TRACKING_URI = "http://your-mlflow-server:5000"  # 替换为远程MLflow地址
+MLFLOW_TRACKING_URI = "http://8.130.215.237:8081/"  # 替换为远程MLflow地址
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 mlflow.set_experiment("credit_default_prediction_pytorch")  # 实验名称
 
